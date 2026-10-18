@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>三國領地爭奪戰</title>
+<link rel="preload" as="image" href="assets/logo.webp">
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -327,9 +328,40 @@ html[lang="en"] #modepick .mcard small{line-height:1.25}
 #upgrade-map.mapcircle{flex:none;width:50px;height:50px;border-radius:50%;padding:0;margin:0;display:flex;align-items:center;justify-content:center;font:bold 15px/1 system-ui,sans-serif;letter-spacing:0;color:#fff;text-shadow:0 1px 2px #000;background:radial-gradient(circle at 35% 30%,#7cc0e8,#1f4f78);border:3px solid #2b1d14;box-shadow:0 0 0 2px #c9a227,0 3px 6px #0008;cursor:pointer;pointer-events:auto}
 #upgrade-map.mapcircle.on{color:#2b1d14;text-shadow:none;background:radial-gradient(circle at 35% 30%,#fff2b0,#e2b63e);box-shadow:0 0 0 3px #f0c94b,0 0 12px #f0c94b}
 #stage.inequip #head{display:none}
+/* 地圖標頭：隱藏金錢與測試鈕、放大武器庫、其餘圖示置中；測試鈕需彩蛋解鎖 */
+#goldbadge{display:none!important}
+#testbtn:not(.show){display:none}
+#testbtn.show{animation:testin .6s ease-out}
+@keyframes testin{0%{transform:scale(.2);opacity:0}70%{transform:scale(1.2);opacity:1}100%{transform:scale(1)}}
+#maphead{justify-content:center;align-items:center;gap:16px}
+#maphl{justify-content:center;gap:12px}
+#maphead small{display:flex;align-items:center}
+#equipbtn{font-size:30px;padding:6px 24px;letter-spacing:3px}
+#mapbg .sun.armed{pointer-events:auto;z-index:4;cursor:grab;touch-action:none;animation:sunarm .9s ease-in-out infinite alternate}
+#mapbg .sun.dragging{cursor:grabbing;animation:none;filter:drop-shadow(0 0 14px rgba(255,210,100,1))}
+@keyframes sunarm{from{filter:drop-shadow(0 0 3px rgba(255,200,90,.5))}to{filter:drop-shadow(0 0 15px rgba(255,210,100,1))}}
+/* 開場畫面（3 秒）：圖片放 assets/logo.webp，製作人文字在下方 #splash 的 .by */
+#splash{position:fixed;inset:0;z-index:99999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.5vh;cursor:pointer;transition:opacity .45s ease}
+#splash.out{opacity:0;pointer-events:none}
+#splash img{display:block;width:auto;height:auto;max-width:min(78vw,520px);max-height:68vh;animation:splin .8s ease-out both}
+#splash .by{font-family:system-ui,"Microsoft JhengHei",sans-serif;font-size:clamp(14px,2.4vh,20px);letter-spacing:.3em;color:#e9dccb;opacity:0;animation:splin .8s ease-out .6s both}
+@keyframes splin{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
+<div id="splash"><img src="assets/logo.webp" alt="TitTit Games" draggable="false"><div class="by">製作人：泰泰遊戲</div></div>
+<script>
+(function(){   // 開場畫面：圖片載入後顯示 3 秒（點擊可跳過），之後淡出；遊戲在背後照常初始化
+  var sp=document.getElementById('splash'),im=sp.querySelector('img'),done=false,started=false;
+  var yt=function(f){try{window.ytgame&&window.ytgame.game&&window.ytgame.game[f]()}catch(e){}};
+  function hide(){if(done)return;done=true;sp.classList.add('out');setTimeout(function(){sp.remove()},500)}
+  function start(){if(started)return;started=true;yt('firstFrameReady');setTimeout(hide,3000)}
+  if(im.complete)start();else{im.addEventListener('load',start);im.addEventListener('error',start)}
+  setTimeout(start,1500);   // 圖片載入太慢時的保險
+  sp.addEventListener('click',hide);
+  addEventListener('load',function(){yt('gameReady')});
+})();
+</script>
 <div id="stage">
 <div id="head"><button id="musicbtn" data-tip="背景音樂：點擊開／關">🎵</button><button id="mute" data-tip="音效：點擊靜音／取消靜音">🔊</button><button id="langbtn" data-notr data-tip="語言 Language：點擊切換 中文 ⇄ English">🌐</button><button id="maplink" data-tip="返回關卡地圖" onclick="showMap()">🗺</button><button id="homebtn" data-tip="回到模式選擇" onclick="backModes()" style="display:none">⌂</button><button id="speedbtn" data-tip="遊戲速度：點擊切換 ×0.5／×1／×2" onclick="cycleSpeed()">×1</button></div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><radialGradient id="cg" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#fff2b0"/><stop offset=".5" stop-color="#e2b63e"/><stop offset="1" stop-color="#8a6512"/></radialGradient></defs></svg>
@@ -2336,6 +2368,56 @@ function syncSlider(){const sc=$('mapscroll'),m=sc.scrollWidth-sc.clientWidth;$(
   addEventListener('keydown',e=>{if(!inMap)return;if(e.key==='ArrowRight'){sc.scrollBy({left:mapSp*3,behavior:'smooth'})}else if(e.key==='ArrowLeft'){sc.scrollBy({left:-mapSp*3,behavior:'smooth'})}});
   let rt;addEventListener('resize',()=>{if(!inMap)return;clearTimeout(rt);rt=setTimeout(()=>{const tot=sc.scrollWidth||1;buildMap((sc.scrollLeft+sc.clientWidth/2)/tot)},120)});
 })();
+let testUnlocked=false;   // 彩蛋解鎖：連點太陽 5 次 → 拖到第 30 關放開 → 顯示測試模式鈕
+(function bindSunSecret(){
+  const sc=$('mapscroll'),bg=$('mapbg'),GOAL=30;
+  let cnt=0,lastT=0,armed=false,down=null;
+  const sunEl=()=>bg.querySelector('.sun');
+  sc.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,s:sc.scrollLeft}},true);
+  sc.addEventListener('click',e=>{
+    if(armed||!down)return;
+    const d=down;down=null;
+    if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>8||Math.abs(sc.scrollLeft-d.s)>2)return;   // 拖曳／捲動不算點擊
+    const s=sunEl();if(!s)return;
+    const r=s.getBoundingClientRect();
+    if(Math.hypot(e.clientX-(r.left+r.width/2),e.clientY-(r.top+r.height/2))>r.width/2)return;
+    const t=Date.now();cnt=(t-lastT>2500)?1:cnt+1;lastT=t;   // 兩次點擊間隔超過 2.5 秒就重算
+    if(cnt>=5){cnt=0;armed=true;bindSun(s);s.classList.add('armed')}
+  });
+  function bindSun(s){
+    if(s._sb)return;s._sb=1;
+    let g=null,raf=0;
+    const kOf=()=>bg.getBoundingClientRect().width/(bg.offsetWidth||1);   // 畫面縮放比例
+    s.addEventListener('wheel',e=>{sc.scrollLeft+=e.deltaY*(e.deltaMode===1?30:1);e.preventDefault()},{passive:false});
+    s.addEventListener('pointerdown',e=>{
+      if(!armed||g)return;
+      g={k:kOf(),x:e.clientX,y:e.clientY,l:s.offsetLeft,t:s.offsetTop};
+      s.style.right='auto';s.style.left=g.l+'px';s.style.top=g.t+'px';
+      s.classList.add('dragging');s.setPointerCapture(e.pointerId);e.preventDefault();
+      (function edge(){   // 拖到畫面左右邊緣時自動捲動地圖，才拉得到遠處的關卡
+        if(!g)return;
+        const b=bg.getBoundingClientRect(),r=s.getBoundingClientRect(),cx=r.left+r.width/2,m=70*g.k;
+        if(cx<b.left+m)sc.scrollLeft-=16;else if(cx>b.right-m)sc.scrollLeft+=16;
+        raf=requestAnimationFrame(edge)})();
+    });
+    s.addEventListener('pointermove',e=>{
+      if(!g)return;
+      const W=bg.offsetWidth,H=bg.offsetHeight,h=s.offsetWidth/2;
+      s.style.left=Math.max(-h,Math.min(W-h,g.l+(e.clientX-g.x)/g.k))+'px';
+      s.style.top=Math.max(-h,Math.min(H-h,g.t+(e.clientY-g.y)/g.k))+'px';
+    });
+    const end=()=>{
+      if(!g)return;g=null;cancelAnimationFrame(raf);
+      const n=$('mapbox').querySelector('.node[data-n="'+GOAL+'"]');let ok=false;
+      if(n){const a=n.getBoundingClientRect(),b=s.getBoundingClientRect();
+        ok=Math.hypot(a.left+a.width/2-(b.left+b.width/2),a.top+a.height/2-(b.top+b.height/2))<=a.width/2+b.width*.25}
+      s.classList.remove('dragging');
+      s.style.left=s.style.top=s.style.right='';   // 太陽回到原位
+      if(ok){armed=false;s.classList.remove('armed');testUnlocked=true;updateGoldUI()}
+    };
+    s.addEventListener('pointerup',end);s.addEventListener('pointercancel',end);
+  }
+})();
 const coinSvg=(s=20)=>`<svg class="coin" width="${s}" height="${s}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="url(#cg)" stroke="#5c430c" stroke-width="1.2"/><circle cx="16" cy="16" r="12.6" fill="none" stroke="#7a5a12" stroke-width="1"/><path d="M16 3.6v4M16 24.4v4M3.6 16h4M24.4 16h4" stroke="#7a5a12" stroke-width="1.6" stroke-linecap="round"/><rect x="10.6" y="10.6" width="10.8" height="10.8" fill="#2b1d14" stroke="#7a5a12" stroke-width="1.4"/></svg>`;   // 外圓內方的古錢幣
 const MAXLV=100;
 const UPS=[
@@ -2349,7 +2431,7 @@ const upCost=(u,L)=>Math.max(u.cost,Math.round(u.cost*(1+.3*L+.03*L*L)/5)*5);
 let testMode=false;try{testMode=localStorage.getItem('sg_test')==='1'}catch(e){}
 const fmt=n=>Number(n).toLocaleString('en-US');
 function updateGoldUI(){const h=coinSvg(22)+'<span>'+(testMode?'∞':fmt(gold))+'</span>';$('goldbadge').innerHTML=h;$('equipgold').innerHTML=h;
-  const tb=$('testbtn'),rb=$('riverbtn');if(tb){tb.textContent='🧪 測試：'+(testMode?'開':'關');tb.classList.toggle('on',testMode)}
+  const tb=$('testbtn'),rb=$('riverbtn');if(tb){tb.textContent='🧪 測試：'+(testMode?'開':'關');tb.classList.toggle('on',testMode);tb.classList.toggle('show',testMode||testUnlocked)}
   if(rb){}}
 function renderEquip(){const rb0=$('resetup');if(rb0)rb0.style.display=testMode?'block':'none';const IC={rate:'⏱',atk:'🗡',land:'🏞',castle:'🏰',gen:'🎖'};
   $('uplist').innerHTML=UPS.map(u=>{const L=up[u.k],full=L>=MAXLV,c=upCost(u,L),ok=!full&&(testMode||gold>=c);
