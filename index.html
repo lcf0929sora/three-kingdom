@@ -1907,7 +1907,9 @@ function drawBank(c,k,now){   // 3×3 銀樓：台基＋紅柱樓身＋綠瓦重
    戰爭時間 1 分鐘＝1 個月：12、1、2 月冬｜3、4、5 月春｜6、7、8 月夏｜9、10、11 月秋。
    地面色調、積雪、草、花、樹葉都隨月份漸進變化；天空有半透明雲朵（時多時少）與偶爾直線飛過的小鳥。 */
 const SEA_ICON=['❄️','🌱','☀️','🍂'],seaIdx=m=>m===12||m<=2?0:m<=5?1:m<=8?2:3;
-const fmtWarS=ms=>fmtWar(ms)+' '+SEA_ICON[seaIdx(warYM(ms).m)];
+let seaStart=0;   // 每場戰鬥開始時隨機決定的「起始月份」偏移（0＝1 月 … 11＝12 月）：只影響四季景色；畫面上的戰爭時間仍是「戰爭經過」的年月，不是當時的月份
+const calMonth=ms=>(seaStart+Math.floor(Math.max(0,ms)/60000))%12+1;   // 目前實際的季節月份（景色用）
+const fmtWarS=ms=>fmtWar(ms)+' '+SEA_ICON[seaIdx(calMonth(ms))];   // 文字＝戰爭經過時間；圖示＝當下景色的季節
 const SEA_KF={   // 1~12 月「月中」的關鍵值，月與月之間平滑漸變
   snow:[1,.9,.35,0,0,0,0,0,0,0,.12,.7],
   dens:[.35,.35,.65,.9,1,1,1,1,.9,.75,.55,.4],
@@ -1919,7 +1921,7 @@ const SEA_KF={   // 1~12 月「月中」的關鍵值，月與月之間平滑漸�
   tint:[[225,232,240,.16],[225,232,240,.14],[150,185,110,.16],[110,180,85,.22],[88,170,78,.24],[70,158,70,.24],[64,150,66,.24],[96,150,62,.22],[170,165,60,.22],[215,170,55,.26],[190,140,70,.22],[190,185,170,.14]]};
 const SEA={t:null,deco:null,rowIdx:null,noise:null,S:{snow:0,dens:0,flower:0,leaf:0,blossom:0,grass:[0,0,0],leafC:[0,0,0],tint:[0,0,0,0],mo:1}};
 function seaState(now){
-  const S=SEA.S,el=Math.max(0,gameOver?battleEnd:now-battleT0),P=el/60000,f=(((P%12)+12)%12)-.5,i0=Math.floor(f),u=f-i0,t=u*u*(3-2*u),a=((i0%12)+12)%12,b=(a+1)%12;
+  const S=SEA.S,el=Math.max(0,gameOver?battleEnd:now-battleT0),P=el/60000+seaStart,f=(((P%12)+12)%12)-.5,i0=Math.floor(f),u=f-i0,t=u*u*(3-2*u),a=((i0%12)+12)%12,b=(a+1)%12;
   for(const k of['snow','dens','flower','leaf','blossom']){const v=SEA_KF[k];S[k]=v[a]+(v[b]-v[a])*t}
   for(const k of['grass','leafC','tint']){const v=SEA_KF[k],o=S[k];for(let j=0;j<o.length;j++)o[j]=v[a][j]+(v[b][j]-v[a][j])*t}
   S.mo=Math.floor(P%12)+1;return S}
@@ -2152,7 +2154,7 @@ function drawMini(now){if(!castles||now-mmT<(keeps.some(q=>q.alertUntil>now)?30:
 function buildScore(){$('ui').innerHTML=castles.map(c=>`<div class="sc${c.human?' me':''}" data-tip="${c.d.n}軍${c.human?'（玩家）':''}：目前佔領的領地格數" style="--c:${c.d.c}" ${godMode?'':`onclick="setPref(${c.i})"`}><i>${c.d.ch}</i><b id="s${c.i}">0</b></div>`).join('');markPref()}
 function resetGame(){
   godClear();const nf=godMode?godN:pickFactions(stage);SHAPE=pickShape(nf);setupWorld(godMode?godScale(nf):mapScale(stage),godMode&&SHAPE.dims?SHAPE.dims.map(v=>Math.round(v*Math.sqrt(godScale(nf)))):SHAPE.dims);CORNERS=layoutCorners(nf);scoreT=0;   // 先決定本關地圖大小與勢力數
-  selectedGroup=[];stageBase='';ST=newST();battleT0=gnow();battleEnd=0;soldierPref=null;landPref=null;garKeep=null;gameOver=false;playerDead=false;spectating=false;if(typeof hideSpec==='function')hideSpec();aiLv=aiScale(godMode?CFG.GOD_LV_STAGE:stage);gameCoins=100;nextIncomeAt=gnow()+INCOME_MS;selectedWeapon=null;selectedTurret=null;weaponStatus='';treasuries=[];prodQ={turret:[],cata:[],trans:[],general:[]};prodNext={turret:0,cata:0,trans:0,general:0};closeAutoMenu(true);battleAtkLevel=0,battleHpLevel=0;battleSpeedLevel=0;deploymentDrag=null;removeDeployGhost();$('over').style.display='none';$('over').dataset.hid='';
+  selectedGroup=[];stageBase='';ST=newST();battleT0=gnow();battleEnd=0;seaStart=Math.floor(Math.random()*12);soldierPref=null;landPref=null;garKeep=null;gameOver=false;playerDead=false;spectating=false;if(typeof hideSpec==='function')hideSpec();aiLv=aiScale(godMode?CFG.GOD_LV_STAGE:stage);gameCoins=100;nextIncomeAt=gnow()+INCOME_MS;selectedWeapon=null;selectedTurret=null;weaponStatus='';treasuries=[];prodQ={turret:[],cata:[],trans:[],general:[]};prodNext={turret:0,cata:0,trans:0,general:0};closeAutoMenu(true);battleAtkLevel=0,battleHpLevel=0;battleSpeedLevel=0;deploymentDrag=null;removeDeployGhost();$('over').style.display='none';$('over').dataset.hid='';
   grid=Array.from({length:NY},()=>Array(NX).fill(0));chp=Array.from({length:NY},()=>Array(NX).fill(0));hitBy=Array.from({length:NY},()=>Array(NX).fill(0));hitT=Array.from({length:NY},()=>Array(NX).fill(-1e9));
   castles=Array.from({length:nf},(_,i)=>newCastle(i));keeps=[];castles.forEach(c=>keeps.push(mkKeep(c)));
   genMask();genTerrain();buildLand();buildVoid();for(let y=0;y<NY;y++)for(let x=0;x<NX;x++)chp[y][x]=neutralHp(x,y);   // 先生成地形，中立格血量依地形
